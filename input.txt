@@ -1,0 +1,8 @@
+processcount 3  # Read 3 processes
+runfor 20       # Run for 20 time units
+use rr
+quantum 2
+process name A arrival 0 burst 5
+process name B arrival 1 burst 4
+process name C arrival 4 burst 2
+end
