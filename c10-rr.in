@@ -1,0 +1,15 @@
+processcount 10	# Read 10 processes
+runfor 60	# Run for 60 time units
+use rr		# Can be fcfs, sjf, or rr
+quantum 3
+process name P01 arrival 0 burst 5
+process name P02 arrival 5 burst 9
+process name P03 arrival 7 burst 3
+process name P04 arrival 9 burst 4
+process name P05 arrival 10 burst 8
+process name P06 arrival 23 burst 4
+process name P07 arrival 12 burst 5
+process name P08 arrival 25 burst 4
+process name P09 arrival 30 burst 7
+process name P10 arrival 34 burst 10
+end

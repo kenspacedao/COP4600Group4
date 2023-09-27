@@ -1,83 +1,144 @@
-class Process:
-    def __init__(self, name, arrival, burst):
-        self.name = name
-        self.arrival = arrival
-        self.burst = burst
-        self.remaining_burst = burst
-        self.turnaround_time = 0
-        self.waiting_time = 0
-        self.response_time = -1
+def round_robin(processes, quantum, arrival_arr, burst_arr,process_name_arr):
+    num_processes = processes
+    processes_info = []
 
-def round_robin(processes, time_slice):
-    queue = []  # Process queue
-    current_time = 0  # Current time
-    completed_processes = []
+    for i in range(num_processes):
+        process_name = process_name_arr[i]
+        arrival_time = arrival_arr[i]
+        burst_time = burst_arr[i]
+        processes_info.append({"job": process_name, "at": arrival_time, "bt": burst_time})
+        i+=1
 
-    while processes or queue:
-        # Add arriving processes to the queue
-        for process in processes:
-            if process.arrival <= current_time:
-                queue.append(process)
-                processes.remove(process)
+    time_quantum = quantum
 
-        if not queue:
-            # No processes in the queue, but more processes are yet to arrive
-            current_time += 1
-            continue
+    processes_info.sort(key=lambda x: (x["at"], x["job"]))
 
-        # Get the first process in the queue
-        current_process = queue.pop(0)
+    solved_processes_info = []
+    gantt_chart_info = []
 
-        if current_process.response_time == -1:
-            current_process.response_time = current_time - current_process.arrival
+    ready_queue = []
+    current_time = processes_info[0]["at"]
+    unfinished_jobs = processes_info[:]
 
-        # Execute the process for its time slice or remaining burst time, whichever is smaller
-        if current_process.remaining_burst <= time_slice:
-            current_time += current_process.remaining_burst
-            current_process.remaining_burst = 0
-            current_process.turnaround_time = current_time - current_process.arrival
-            current_process.waiting_time = current_process.turnaround_time - current_process.burst
-            completed_processes.append(current_process)
+    remaining_time = {process["job"]: process["bt"]
+                      for process in processes_info}
+
+    ready_queue.append(unfinished_jobs[0])
+
+    while any(remaining_time.values()) and unfinished_jobs:
+        if not ready_queue and unfinished_jobs:
+            # Previously idle
+            ready_queue.append(unfinished_jobs[0])
+            current_time = ready_queue[0]["at"]
+
+        process_to_execute = ready_queue[0]
+
+        if remaining_time[process_to_execute["job"]] <= time_quantum:
+            # Burst time less than or equal to time quantum, execute until finished
+            remaining_t = remaining_time[process_to_execute["job"]]
+            remaining_time[process_to_execute["job"]] -= remaining_t
+            prev_current_time = current_time
+            current_time += remaining_t
+
+            gantt_chart_info.append({
+                "job": process_to_execute["job"],
+                "start": prev_current_time,
+                "stop": current_time,
+            })
         else:
-            current_time += time_slice
-            current_process.remaining_burst -= time_slice
-            queue.append(current_process)
+            remaining_time[process_to_execute["job"]] -= time_quantum
+            prev_current_time = current_time
+            current_time += time_quantum
 
-    return completed_processes
+            gantt_chart_info.append({
+                "job": process_to_execute["job"],
+                "start": prev_current_time,
+                "stop": current_time,
+            })
 
-def calculate_metrics(processes):
-    total_turnaround_time = 0
-    total_waiting_time = 0
-    total_response_time = 0
+        process_to_arrive_in_this_cycle = [
+            p for p in processes_info if (
+                p["at"] <= current_time and
+                p != process_to_execute and
+                p not in ready_queue and
+                p in unfinished_jobs
+            )
+        ]
 
-    for process in processes:
-        total_turnaround_time += process.turnaround_time
-        total_waiting_time += process.waiting_time
-        total_response_time += process.response_time
+        # Push new processes to readyQueue
+        ready_queue.extend(process_to_arrive_in_this_cycle)
 
-    avg_turnaround_time = total_turnaround_time / len(processes)
-    avg_waiting_time = total_waiting_time / len(processes)
-    avg_response_time = total_response_time / len(processes)
+        # Requeueing (move head/first item to tail/last)
+        ready_queue.append(ready_queue.pop(0))
 
-    return avg_turnaround_time, avg_waiting_time, avg_response_time
+        # When the process finished executing
+        if remaining_time[process_to_execute["job"]] == 0:
+            unfinished_jobs.remove(process_to_execute)
+            ready_queue.remove(process_to_execute)
 
-# Example usage
-if __name__ == "__main__":
-    p1 = Process("P1", 0, 10)
-    p2 = Process("P2", 1, 5)
-    p3 = Process("P3", 3, 8)
+            solved_processes_info.append({
+                **process_to_execute,
+                "ft": current_time,
+                "tat": current_time - process_to_execute["at"],
+                "wat": current_time - process_to_execute["at"] - process_to_execute["bt"],
+            })
 
-    processes = [p1, p2, p3]
-    time_slice = 2
+    # Sort the processes arrival time and then by job name
+    solved_processes_info.sort(key=lambda x: (x["at"], x["job"]))
 
-    completed_processes = round_robin(processes, time_slice)
+    return solved_processes_info, gantt_chart_info
 
-    avg_turnaround_time, avg_waiting_time, avg_response_time = calculate_metrics(completed_processes)
+processcount = 0
+runfor = 0
+use = ''
+quantum = 0
+arrival_arr = []
+burst_arr = []
+process_name_arr = []
 
-    print("Process\tTurnaround Time\tWaiting Time\tResponse Time")
-    for process in completed_processes:
-        print(f"{process.name}\t{process.turnaround_time}\t\t{process.waiting_time}\t\t{process.response_time}")
+file_path = "c2-rr.in"
+try:
+    with open(file_path, 'r') as file:
+        for line in file:
+            line_parts = line.split("#", 1)
+            line_without_comment = line_parts[0].strip()
+            final_line = line_without_comment.split()
+            if(final_line[0] == "processcount"):
+                processcount = int(final_line[1])
+            if(final_line[0] == "runfor"):
+                runfor = int(final_line[1])
+            if(final_line[0] == "use"):
+                use = final_line[1]
+            if(final_line[0] == "quantum"):
+                quantum = int(final_line[1])
+            if(final_line[0] == "process"):
+                process_name_arr.append(final_line[2])
+                arrival_arr.append(int(final_line[4]))
+                burst_arr.append(int(final_line[6]))
 
-    print(f"Average Turnaround Time: {avg_turnaround_time}")
-    print(f"Average Waiting Time: {avg_waiting_time}")
-    print(f"Average Response Time: {avg_response_time}")
+except FileNotFoundError:
+    print(f"File '{file_path}' not found.")
+except Exception as e:
+    print(f"An error occured: {str(e)}")
+
+
+if(use == "rr"):
+    solved_processes_info, gantt_chart_info = round_robin(processcount, quantum, arrival_arr, burst_arr, process_name_arr)
+
+    # Calculate averages
+    num_processes = len(solved_processes_info)
+    total_tat = sum(process["tat"] for process in solved_processes_info)
+    total_wat = sum(process["wat"] for process in solved_processes_info)
+    total_rt = sum(process["tat"] - process["bt"]
+                for process in solved_processes_info)
+
+    print("\nProcess\tTurnaround Time\tWaiting Time\tResponse Time")
+    for process in solved_processes_info:
+        print(
+            f"{process['job']}\t{process['tat']}\t\t{process['wat']}\t\t{process['tat'] - process['bt']}")
+
+if(use == "fcfs"):
+    print("fcfs code")
+
+if(use == "sjf"):
+    print("sjf code")
