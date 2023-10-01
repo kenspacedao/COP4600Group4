@@ -25,13 +25,27 @@ def round_robin(processes, quantum, arrival_arr, burst_arr,process_name_arr):
 
     ready_queue.append(unfinished_jobs[0])
 
+    first_entry_time = {}  # Dictionary to store the first entry time for each process
+
+    print(
+        f"\n{num_processes} processes\nUsing Round-Robin\nQuantum   {time_quantum}\n")
+    print(f"Time   0 : {processes_info[0]['job']} arrived")
+
     while any(remaining_time.values()) and unfinished_jobs:
         if not ready_queue and unfinished_jobs:
             # Previously idle
             ready_queue.append(unfinished_jobs[0])
             current_time = ready_queue[0]["at"]
+            print(
+                f"Time  {current_time:3d} : {ready_queue[0]['job']} selected (burst {ready_queue[0]['bt']:3d})")
 
         process_to_execute = ready_queue[0]
+
+        if process_to_execute["job"] not in first_entry_time:
+            # Calculate and store response time when the process enters the ready queue for the first time
+            first_entry_time[process_to_execute["job"]
+                             ] = current_time - process_to_execute["at"]
+
 
         if remaining_time[process_to_execute["job"]] <= time_quantum:
             # Burst time less than or equal to time quantum, execute until finished
@@ -45,6 +59,9 @@ def round_robin(processes, quantum, arrival_arr, burst_arr,process_name_arr):
                 "start": prev_current_time,
                 "stop": current_time,
             })
+            print(
+                f"Time  {current_time:3d} : {process_to_execute['job']} finished")
+            
         else:
             remaining_time[process_to_execute["job"]] -= time_quantum
             prev_current_time = current_time
@@ -55,6 +72,8 @@ def round_robin(processes, quantum, arrival_arr, burst_arr,process_name_arr):
                 "start": prev_current_time,
                 "stop": current_time,
             })
+            print(
+                f"Time  {current_time:3d} : {process_to_execute['job']} selected (burst {remaining_time[process_to_execute['job']]:3d})")
 
         process_to_arrive_in_this_cycle = [
             p for p in processes_info if (
@@ -81,10 +100,25 @@ def round_robin(processes, quantum, arrival_arr, burst_arr,process_name_arr):
                 "ft": current_time,
                 "tat": current_time - process_to_execute["at"],
                 "wat": current_time - process_to_execute["at"] - process_to_execute["bt"],
+                "rt": first_entry_time[process_to_execute["job"]],
             })
 
     # Sort the processes arrival time and then by job name
     solved_processes_info.sort(key=lambda x: (x["at"], x["job"]))
+
+    
+    # Calculate averages
+    num_processes = len(solved_processes_info)
+    total_tat = sum(process["tat"] for process in solved_processes_info)
+    total_wat = sum(process["wat"] for process in solved_processes_info)
+    total_rt = sum(process["tat"] - process["bt"]
+                for process in solved_processes_info)
+
+    print(f"Finished at time  {current_time}\n")
+    print("Process   Turnaround Time   Waiting Time   Response Time")
+    for process in solved_processes_info:
+        print(
+            f"{process['job']}   wait {process['wat']:3d} turnaround {process['tat']:3d} response {process['rt']:3d}")
 
     return solved_processes_info, gantt_chart_info
 
@@ -96,7 +130,7 @@ arrival_arr = []
 burst_arr = []
 process_name_arr = []
 
-file_path = "c2-rr.in"
+file_path = "c10-rr.in"
 try:
     with open(file_path, 'r') as file:
         for line in file:
@@ -125,17 +159,6 @@ except Exception as e:
 if(use == "rr"):
     solved_processes_info, gantt_chart_info = round_robin(processcount, quantum, arrival_arr, burst_arr, process_name_arr)
 
-    # Calculate averages
-    num_processes = len(solved_processes_info)
-    total_tat = sum(process["tat"] for process in solved_processes_info)
-    total_wat = sum(process["wat"] for process in solved_processes_info)
-    total_rt = sum(process["tat"] - process["bt"]
-                for process in solved_processes_info)
-
-    print("\nProcess\tTurnaround Time\tWaiting Time\tResponse Time")
-    for process in solved_processes_info:
-        print(
-            f"{process['job']}\t{process['tat']}\t\t{process['wat']}\t\t{process['tat'] - process['bt']}")
 
 if(use == "fcfs"):
     print("fcfs code")
