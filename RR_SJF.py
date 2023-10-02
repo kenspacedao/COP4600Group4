@@ -8,6 +8,92 @@ class Process:
         self.wait_time = 0
         self.turnaround_time = 0
         self.response_time = -1
+        #Human code: Used to format the output
+        self.exit_time = -1
+        self.status = None
+
+def fcfs(processes, overall_time, process_count, input_file):
+    output_file = input_file.replace(".in", ".out")
+
+    # ---------------------------- Start of Human Intervention -------------------------------- #
+
+    #create a copy of the list for sorting
+    sorted_processes = processes.copy()
+    sorted_processes.sort(key=lambda x : x.arrival_time)
+    cur_time = -1
+
+    #we need to sort through and find the exit times to do the math
+    for process in sorted_processes:
+        #if the previous process has finished and onto the next
+        if process.arrival_time > cur_time:
+            cur_time = process.arrival_time
+
+        #simple calculations for processes
+        process.exit_time = cur_time + process.burst_time
+        process.turnaround_time = process.exit_time - process.arrival_time
+        process.wait_time = process.turnaround_time - process.burst_time
+        process.response_time = cur_time - process.arrival_time
+
+        #when the current process is going to finish
+        cur_time = process.exit_time
+
+
+    #just copying over the info that we just calculated into the original list (not necessary, but it makes the format identical to the ones provided)
+    for a in processes:
+        for b in sorted_processes:
+            if a.name == b.name:
+                a.turnaround_time = b.turnaround_time
+                a.wait_time = b.wait_time
+                a.response_time = b.response_time
+
+    #writing to an output file
+    with open(output_file, "w") as ofile:
+        #output format
+        ofile.write(f"{process_count} processes\n")
+        ofile.write(f"Using First Come First Serve algorithm\n")
+        #this is for the format and to keep track of where in the algo I am
+        previous_process = None
+
+        #iterate through each time tick
+        for current_time in range(overall_time):
+            #find a list of eligible processes, can't have that process selected if it is finished or hasn't arrived yet
+            eligible_processes = [p for p in processes if p.arrival_time <= current_time and p.status != "Finished"]
+            #if there are no eligible processes, idle
+            if not eligible_processes:
+                ofile.write(f"Time {current_time} : Idle\n")
+                continue
+
+            #If this current time is when the process arives, print that out
+            for p in eligible_processes:
+                if p.arrival_time == current_time:
+                    ofile.write(f"Time {current_time} : {p.name} arrived\n")
+                    p.status = "Arrived"
+            
+            #find the first process to arrive out of the eligible processes, won't be in there if finished or hasn't arrived yet
+            first_process = min(eligible_processes, key=lambda a : a.arrival_time)
+            #if this is the first iteration
+            if previous_process == None:
+                ofile.write(f"Time {current_time} : {first_process.name} selected ( burst {first_process.burst_time} )\n")
+            #if the previous process and cur process are different, or they are the same process but have a different status, then print
+            elif (first_process.name == previous_process.name and first_process.status != previous_process.status) or first_process.name != previous_process.name:
+                ofile.write(f"Time {current_time} : {first_process.name} selected ( burst {first_process.burst_time} )\n")
+
+            #change process burst time
+            first_process.burst_time -= 1
+
+            #this means the process has finished
+            if first_process.burst_time <= 0:
+                first_process.status = "Finished"
+                ofile.write(f"Time {current_time + 1} : {first_process.name} finished\n")
+
+            previous_process = first_process
+
+        ofile.write(f"Finished at time {overall_time}\n\n")
+
+        for p in processes:
+            ofile.write(f"{p.name} wait\t{p.wait_time} turnaround\t{p.turnaround_time} response\t{p.response_time}\n")            
+
+    # ----------------------------- End of Human Intervention ---------------------------------- #
 
 def preemptive_sjf_scheduling(total_time, processes):
     current_time = 0
@@ -243,7 +329,7 @@ if(use == "rr"):
 
 
 if(use == "fcfs"):
-    print("fcfs code")
+    fcfs(processes, runfor, processcount, file_path)
 
 if(use == "sjf"):
     with open(output_file, "w") as stdout_file:
